@@ -247,6 +247,7 @@ static void create_tree(struct quadNode *quadTree, struct quadNode *root, struct
 	add_quad_node(quadTree, root, NULL, nNodes);
 	*nNodes = *nNodes + 1;
 	for (i = 0; i < *locationsNumber; i++) {
+//		printf("%lf, %lf, %lf, %lf\n", locations[i].ldx, locations[i].ldy, locations[i].rux, locations[i].ruy);
 		add_quad_node(quadTree, &quadTree[0], &locations[i], nNodes);
 		*nNodes = *nNodes + 1;	
 	}
@@ -261,7 +262,7 @@ long cross_product(int ax, int ay, int bx, int by)
 	 return cross > 0 ? 1 : -1;
 }
 
-long intersection(long ax, long ay, long bx, long by, long cx, long cy, long dx, long dy, long t1, long t2)
+double intersection(long ax, long ay, long bx, long by, long cx, long cy, long dx, long dy, long t1, long t2)
 {
 	if (cross_product(bx - ax, by - ay, cx - ax, cy - ay) == cross_product(bx - ax, by - ay, dx - ax, dy - ay)) {
 		return -1;	
@@ -270,19 +271,19 @@ long intersection(long ax, long ay, long bx, long by, long cx, long cy, long dx,
 		return -1;
 	}	
 	if ((ax == bx) && (cx != dx)) {
-		return t1 + (t2 - t1) * (ax - cx) / (dx - cx);		
+		return (double) t1 + (t2 - t1) * (ax - cx) / (double) (dx - cx);		
 	}
 	if ((ay == by) && (cy != dy)) {
-		return t1 + (t2 - t1) * (ay - cy) / (dy - cy);
+		return (double) t1 + (t2 - t1) * (ay - cy) / (double) (dy - cy);
 	}		
 	
 	return -1;
 }
 
-int find_intersection(long ldx, long ldy, long rux, long ruy, long minT, long maxT, long x1, long y1, long x2, long y2, long t1, long t2, int *enter, int *leave) 
+double find_intersection(long ldx, long ldy, long rux, long ruy, long minT, long maxT, long x1, long y1, long x2, long y2, long t1, long t2, int *enter, int *leave) 
 {
 	long tmin = -1;
-	long t[4];
+	double t[4];
 	int i;
 	
 	t[0] = intersection(ldx, ldy, rux, ldy, x1, y1, x2, y2, t1, t2);
@@ -291,15 +292,17 @@ int find_intersection(long ldx, long ldy, long rux, long ruy, long minT, long ma
 	t[3] = intersection(ldx, ldy, ldx, ruy, x1, y1, x2, y2, t1, t2);																														                                                                                       
 	
 	int cnt = 0;
-	long temp = 0;
+	double temp = 0;
 	for (i = 0; i < 4; i++) {
-//		printf("t[i]:%d\n", t[i]);
+//			printf("t[i]:%lf\n", t[i]);
 		if (t[i] > 0 && cnt < 1) {
 			temp = t[i]; 
 			cnt++;
 		} else if (t[i] > 0 && cnt == 1) {
+//				printf("tt:%d %d - %d %d -- %lf, %lf\n", x1, y1, x2, y2, temp, t[i]);       
 			if (temp != t[i]) {
 				long diff = abs(temp - t[i]);
+//				printf("t[i]:%ld\n", diff);
 				if (diff >= minT && diff <= maxT) {/* path is in location */
 					return INF;
 				}
@@ -310,14 +313,14 @@ int find_intersection(long ldx, long ldy, long rux, long ruy, long minT, long ma
 	
 	if (temp != 0 && *enter == 1) {
 		*leave = 1;
-	} else if (temp != 0){
+	} else if (temp != 0) {
 		*enter = 1;
 	}              
 	                                                            
 	return temp;
 }
 
-void search_location(struct quadNode *quadTree, int qIndex, struct pathNode pNode_1, struct pathNode pNode_2, long *intersects)
+void search_location(struct quadNode *quadTree, int qIndex, struct pathNode pNode_1, struct pathNode pNode_2, int *visits, double *t, int *enter, int *leave, double *temp, int *tempIntersect)
 {
 	/* in center */
 	if (pNode_1.x == quadTree[qIndex].x && pNode_1.y == quadTree[qIndex].y) {
@@ -327,32 +330,32 @@ void search_location(struct quadNode *quadTree, int qIndex, struct pathNode pNod
 	if (pNode_1.x >= quadTree[qIndex].x && pNode_1.y >= quadTree[qIndex].y && quadTree[qIndex].rtChild != INF) {
 		if (quadTree[qIndex].location.ldx == 0 && quadTree[qIndex].location.rux == 0) { /* it's not location */
 //			printf("rt:%d\n", quadTree[qIndex].rtChild);
-			search_location(quadTree, quadTree[qIndex].rtChild, pNode_1, pNode_2, intersects);
-			search_location(quadTree, quadTree[qIndex].rtChild, pNode_2, pNode_1, intersects);
+			search_location(quadTree, quadTree[qIndex].rtChild, pNode_1, pNode_2, visits, t, enter, leave, temp, tempIntersect);
+			search_location(quadTree, quadTree[qIndex].rtChild, pNode_2, pNode_1, visits, t, enter, leave, temp, tempIntersect);
 		} 
 	} 
 	/* left top */
 	if (pNode_1.x <= quadTree[qIndex].x && pNode_1.y >= quadTree[qIndex].y && quadTree[qIndex].ltChild != INF) {
 		if (quadTree[qIndex].location.ldx == 0 && quadTree[qIndex].location.rux == 0) { /* it's not location */
 //			printf("lt:%d\n", quadTree[qIndex].ltChild);
-			search_location(quadTree, quadTree[qIndex].ltChild, pNode_1, pNode_2, intersects);
-			search_location(quadTree, quadTree[qIndex].ltChild, pNode_2, pNode_1, intersects);				
+			search_location(quadTree, quadTree[qIndex].ltChild, pNode_1, pNode_2, visits, t, enter, leave, temp, tempIntersect);
+			search_location(quadTree, quadTree[qIndex].ltChild, pNode_2, pNode_1, visits, t, enter, leave, temp, tempIntersect);				
 		} 
 	}
 	/* right bottom */
 	if (pNode_1.x >= quadTree[qIndex].x && pNode_1.y <= quadTree[qIndex].y && quadTree[qIndex].rbChild != INF) {
 		if (quadTree[qIndex].location.ldx == 0 && quadTree[qIndex].location.rux == 0) { /* it's not location */
 //			printf("rb:%d\n", quadTree[qIndex].rbChild);
-			search_location(quadTree, quadTree[qIndex].rbChild, pNode_1, pNode_2, intersects);
-			search_location(quadTree, quadTree[qIndex].rbChild, pNode_2, pNode_1, intersects);
+			search_location(quadTree, quadTree[qIndex].rbChild, pNode_1, pNode_2, visits, t, enter, leave, temp, tempIntersect);
+			search_location(quadTree, quadTree[qIndex].rbChild, pNode_2, pNode_1, visits, t, enter, leave, temp, tempIntersect);
 		} 
 	}
 	/* left bottom */
 	if (pNode_1.x <= quadTree[qIndex].x && pNode_1.y <= quadTree[qIndex].y && quadTree[qIndex].lbChild != INF) {
 		if (quadTree[qIndex].location.ldx == 0 && quadTree[qIndex].location.rux == 0) { /* it's not location */
 //			printf("lb:%d\n", quadTree[qIndex].lbChild);
-			search_location(quadTree, quadTree[qIndex].lbChild, pNode_1, pNode_2, intersects);
-			search_location(quadTree, quadTree[qIndex].lbChild, pNode_2, pNode_1, intersects);					
+			search_location(quadTree, quadTree[qIndex].lbChild, pNode_1, pNode_2, visits, t, enter, leave, temp, tempIntersect);
+			search_location(quadTree, quadTree[qIndex].lbChild, pNode_2, pNode_1, visits, t, enter, leave, temp, tempIntersect);					
 		} 
 	}
 	
@@ -360,7 +363,36 @@ void search_location(struct quadNode *quadTree, int qIndex, struct pathNode pNod
 	if (quadTree[qIndex].location.ldx == 0 && quadTree[qIndex].location.rux == 0) {
 		printf("");
 	} else {
-		intersects[quadTree[qIndex].location.id] = 1; 	
+//		intersects[quadTree[qIndex].location.id] = 1;
+		int intersects = quadTree[qIndex].location.id;
+			
+		if (tempIntersect[intersects] == 0) {
+//			printf("l: %d, %ld, %ld, %ld, %ld\n", intersects, pNode_1.x, pNode_1.y, pNode_2.x, pNode_2.y);
+			tempIntersect[intersects] = 1;
+			t[intersects] = find_intersection(quadTree[qIndex].location.ldx, quadTree[qIndex].location.ldy, quadTree[qIndex].location.rux, quadTree[qIndex].location.ruy, quadTree[qIndex].location.minT, quadTree[qIndex].location.maxT,
+										pNode_1.x, pNode_1.y, pNode_2.x, pNode_2.y, pNode_1.t, pNode_2.t, &enter[intersects], &leave[intersects]);	
+			t[intersects] = abs(t[intersects]);
+//			printf("%lf, %d, %d\n", t[intersects], enter[intersects], leave[intersects]);
+			if (t[intersects] == INF) {
+				enter[intersects] = 0;
+				leave[intersects] = 0;
+				t[intersects] = 0;
+				temp[intersects] = 0;
+				visits[intersects] = visits[intersects] + 1;		
+			} else if (t[intersects] > 0 && enter[intersects] == 1 && leave[intersects] == 0) {
+				temp[intersects] = t[intersects];
+			} else if (t[intersects] > 0 && enter[intersects] == 1 && leave[intersects] == 1) {
+				double diff = abs(temp[intersects] - t[intersects]);
+				if (diff >= quadTree[qIndex].location.minT && diff <= quadTree[qIndex].location.maxT) {	
+					visits[intersects] = visits[intersects] + 1;
+//					printf("%d: %ld, %ld, %ld, %ld\n", intersects, pNode_1.x, pNode_1.y, pNode_2.x, pNode_2.y);
+				}
+				enter[intersects] = 0;
+				leave[intersects] = 0;
+				t[intersects] = 0;
+				temp[intersects] = 0;
+			}		
+		}
 	}
 }
 
@@ -540,9 +572,12 @@ int main ()
 	long ts0, ts1, ts2, ts3, ts4;
 	struct timeval stop, start;
 		
-	writeFile = fopen("ans.txt", "w");	
-	locationsFile = fopen("locations.txt", "r");
-	pathFile = fopen("paths.txt", "r");
+	writeFile = fopen("ans-32.txt", "w");	
+	locationsFile = fopen("test-cases/max_passes-time.txt", "r");
+//	locationsFile = fopen("locations.txt", "r");
+//	locationsFile = fopen("test-cases/TL-4.txt", "r");
+//	pathFile = fopen("paths.txt", "r");
+	pathFile = fopen("test-cases/P3.txt", "r");
 			
 	if (!locationsFile) {
 		printf("no file");
@@ -571,7 +606,7 @@ int main ()
 	/* create quad tree */
 	ts1 = timestamp(); /* time of creating tree */
 	gettimeofday(&start, NULL);
-	quadTree = malloc(locationsNumber * 10 * sizeof(quadTree[0]));
+	quadTree = malloc(locationsNumber * 1000 * sizeof(quadTree[0]));
 	create_tree(quadTree, &root, locations, &locationsNumber, &nNodes);
 //	display(quadTree, nNodes); /* display tress's nodes */
 	gettimeofday(&stop, NULL);
@@ -581,7 +616,7 @@ int main ()
 	int rightBoundry = root.x + root.diffX;
 	int leftBoundry = root.x - root.diffX;		
 	int *visits = malloc(locationsNumber * sizeof(int));
-	long *intersects = malloc(locationsNumber * sizeof(intersects[0]));
+//	long *intersects = malloc(locationsNumber * sizeof(intersects[0]));
 	for (i = 0; i < locationsNumber; i++) {
 		visits[i] = 0;
 	}
@@ -589,43 +624,28 @@ int main ()
 	/* answer questions */
 	ts2 = timestamp(); /* time of answergin the questions */
 	int n = 0;
+	int *enter = malloc(locationsNumber * sizeof(enter[0]));
+	int *leave = malloc(locationsNumber * sizeof(leave[0]));
+	double *temp = malloc(locationsNumber * sizeof(temp[0]));
+	double *t =  malloc(locationsNumber * sizeof(t[0]));
+	int *tempIntersect = malloc(locationsNumber * sizeof(tempIntersect[0]));
 	while (n < pathsNumber) {
 		for (i = 0; i < locationsNumber; i++) {
-			intersects[i] = 0;
+			enter[i] = 0;
+			leave[i] = 0;
+			temp[i] = 0;
+			t[i] = 0;
 		}
-
-		for (i = 0; i < npaths[n].n - 1; i++) {
+		
+		for (i = 0; i < npaths[n].n - 1; i++) {			
 			if (npaths[n].pathNodes[i].x >= leftBoundry && npaths[n].pathNodes[i].x <= rightBoundry || npaths[n].pathNodes[i + 1].x >= leftBoundry && npaths[n].pathNodes[i + 1].x <= rightBoundry) {
 				if (npaths[n].pathNodes[i].y >= bottomBoundry && npaths[n].pathNodes[i].y <= topBoundry || npaths[n].pathNodes[i + 1].y >= bottomBoundry && npaths[n].pathNodes[i + 1].y <= topBoundry) {
-					search_location(quadTree, 0, npaths[n].pathNodes[i], npaths[n].pathNodes[i + 1], intersects);
-				}
-			}
-		}
-					
-		int enter = 0;
-		int leave = 0;	
-		int temp = 0;
-		for (i = 0; i < npaths[n].n - 1; i++) {
-			for (j = 0; j < locationsNumber; j++) {
-				if (intersects[j] != 0) {
-					long t = find_intersection(locations[j].ldx, locations[j].ldy, locations[j].rux, locations[j].ruy, locations[j].minT, locations[j].maxT,
-										npaths[n].pathNodes[i].x, npaths[n].pathNodes[i].y, npaths[n].pathNodes[i + 1].x, npaths[n].pathNodes[i + 1].y, npaths[n].pathNodes[i].t, npaths[n].pathNodes[i + 1].t, &enter, &leave);
-					t = abs(t);
-					if (t == INF) {
-						enter = 0;
-						leave = 0;
-						visits[j]++;		
-					} else if (t > 0 && enter == 1 && leave == 0) {
-						temp = t;
-					} else if (t > 0 && enter == 1 && leave == 1) {
-						long diff = abs(temp - t);
-						if (diff >= locations[j].minT && diff <= locations[j].maxT) {	
-							visits[j]++;
-						}
-						enter = 0;
-						leave = 0;
+//					printf("ss:%d %d - %d %d\n", npaths[n].pathNodes[i].x, npaths[n].pathNodes[i].y, npaths[n].pathNodes[i + 1].x, npaths[n].pathNodes[i + 1].y); 
+					for (j = 0; j < locationsNumber; j++) {
+						tempIntersect[j] = 0;
 					}
-				}	
+					search_location(quadTree, 0, npaths[n].pathNodes[i], npaths[n].pathNodes[i + 1], visits, t, enter, leave, temp, tempIntersect);	
+				}
 			}
 		}
 		n++;
@@ -638,7 +658,7 @@ int main ()
 	ts3 = timestamp(); /* finsih time */
 	
 	printf("\n\n%ld, %ld, %ld", ts1 - ts0, (stop.tv_sec - start.tv_sec) * 1000  + stop.tv_usec - start.tv_usec, ts3 - ts2);
-		
+			
 	free(npaths);
 	free(locations);
 	free(quadTree);
